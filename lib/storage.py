@@ -9,18 +9,33 @@ SUBJECTS = CONFIG_PREFIX + "subjects.csv"
 AJK_SUBJ = CONFIG_PREFIX + "ajk_subjects.csv"
 LANTIKAN = CONFIG_PREFIX + "lantikan.csv"
 
+def _require(path):
+    cur = st.secrets
+    for k in path:
+        if k not in cur:
+            raise RuntimeError(f"Missing secret: {' -> '.join(path)}")
+        cur = cur[k]
+    return cur
+
 @st.cache_resource(show_spinner=False)
 def get_client() -> Client:
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
+    url = _require(["supabase","url"])
+    key = _require(["supabase","key"])
+    if not (isinstance(url, str) and url.endswith(".supabase.co")):
+        raise RuntimeError("Supabase url looks invalid (must end with .supabase.co, no trailing slash).")
+    if not key or len(key) < 20:
+        raise RuntimeError("Supabase anon key looks invalid (too short).")
     return create_client(url, key)
 
 @st.cache_resource(show_spinner=False)
 def get_admin_client() -> Client:
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["service_role"]
+    url = _require(["supabase","url"])
+    key = _require(["supabase","service_role"])
+    if not key or len(key) < 20:
+        raise RuntimeError("Supabase service_role key looks invalid (too short).")
     return create_client(url, key)
 
 def bucket() -> str:
-    return st.secrets.get("app", {}).get("bucket", "uitm-files")
-
+    b = st.secrets.get("app",{}).get("bucket","uitm-files")
+    if not b: raise RuntimeError("Bucket name missing: set [app] bucket in secrets.")
+    return b
